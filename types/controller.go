@@ -43,8 +43,8 @@ type ControllerConfig struct {
 // Controller is used to invoke functions on a per-topic basis and to subscribe to responses returned by said functions.
 type Controller interface {
 	Subscribe(subscriber ResponseSubscriber)
-	Invoke(topic string, message *[]byte)
-	InvokeWithContext(ctx context.Context, topic string, message *[]byte)
+	Invoke(topic string, message *[]byte, options InvocationOptions)
+	InvokeWithContext(ctx context.Context, topic string, message *[]byte, options InvocationOptions)
 	BeginMapBuilder()
 	Topics() []string
 }
@@ -126,14 +126,14 @@ func (c *controller) Subscribe(subscriber ResponseSubscriber) {
 
 // Invoke attempts to invoke any functions which match the
 // topic the incoming message was published on.
-func (c *controller) Invoke(topic string, message *[]byte) {
-	c.InvokeWithContext(context.Background(), topic, message)
+func (c *controller) Invoke(topic string, message *[]byte, options InvocationOptions) {
+	c.InvokeWithContext(context.Background(), topic, message, options)
 }
 
 // InvokeWithContext attempts to invoke any functions which match the topic
 // the incoming message was published on while propagating context.
-func (c *controller) InvokeWithContext(ctx context.Context, topic string, message *[]byte) {
-	c.Invoker.InvokeWithContext(ctx, c.TopicMap, topic, message)
+func (c *controller) InvokeWithContext(ctx context.Context, topic string, message *[]byte, options InvocationOptions) {
+	c.Invoker.InvokeWithContext(ctx, c.TopicMap, topic, message, options)
 }
 
 // BeginMapBuilder begins to build a map of function->topic by

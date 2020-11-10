@@ -32,6 +32,10 @@ type InvokerResponse struct {
 	Function string
 }
 
+type InvocationOptions struct {
+	Headers map[string]string
+}
+
 func NewInvoker(gatewayURL string, client *http.Client, printResponse bool) *Invoker {
 	return &Invoker{
 		PrintResponse: printResponse,
@@ -42,12 +46,12 @@ func NewInvoker(gatewayURL string, client *http.Client, printResponse bool) *Inv
 }
 
 // Invoke triggers a function by accessing the API Gateway
-func (i *Invoker) Invoke(topicMap *TopicMap, topic string, message *[]byte) {
-	i.InvokeWithContext(context.Background(), topicMap, topic, message)
+func (i *Invoker) Invoke(topicMap *TopicMap, topic string, message *[]byte, options InvocationOptions) {
+	i.InvokeWithContext(context.Background(), topicMap, topic, message, options)
 }
 
 //InvokeWithContext triggers a function by accessing the API Gateway while propagating context
-func (i *Invoker) InvokeWithContext(ctx context.Context, topicMap *TopicMap, topic string, message *[]byte) {
+func (i *Invoker) InvokeWithContext(ctx context.Context, topicMap *TopicMap, topic string, message *[]byte, options InvocationOptions) {
 	if len(*message) == 0 {
 		i.Responses <- InvokerResponse{
 			Context: ctx,
@@ -62,7 +66,7 @@ func (i *Invoker) InvokeWithContext(ctx context.Context, topicMap *TopicMap, top
 		gwURL := fmt.Sprintf("%s/%s", i.GatewayURL, matchedFunction)
 		reader := bytes.NewReader(*message)
 
-		body, statusCode, header, doErr := invokefunction(ctx, i.Client, gwURL, reader)
+		body, statusCode, header, doErr := invokefunction(ctx, i.Client, gwURL, reader, options)
 
 		if doErr != nil {
 			i.Responses <- InvokerResponse{
@@ -83,10 +87,11 @@ func (i *Invoker) InvokeWithContext(ctx context.Context, topicMap *TopicMap, top
 	}
 }
 
-func invokefunction(ctx context.Context, c *http.Client, gwURL string, reader io.Reader) (*[]byte, int, *http.Header, error) {
-
-	httpReq, _ := http.NewRequest(http.MethodPost, gwURL, reader)
-	httpReq.WithContext(ctx)
+func invokefunction(ctx context.Context, c *http.Client, gwURL string, reader io.Reader, options InvocationOptions) (*[]byte, int, *http.Header, error) {
+	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, gwURL, reader)
+	for headerEntry, headerValue := range options.Headers {
+		httpReq.Header.Set(headerEntry, headerValue)
+	}
 
 	if httpReq.Body != nil {
 		defer httpReq.Body.Close()
